@@ -11,6 +11,7 @@ labirinto com dois personagens representando cada algoritmo, o A* irá represent
 - O programa deve possibilitar que o usuário desenhe o próprio labirinto 
 - O programa deve possibilitar a geração aleatório do ponto inicial de cada personagem no labirinto 
 - O programa deve possibilitar que o usuário possa definir o ponto inicial de cada personagem no labirinto 
+- O programa deve possibilitar que o usuário possa testar os algoritmos do Gulos e do A* individualmente 
 - O programa deve possibilitar a inversão da caçada, onde o caçador vira caça
 
 
