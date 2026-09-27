@@ -4,19 +4,17 @@ import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
 import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
-import javafx.animation.KeyValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -33,13 +31,16 @@ public final class MazeView extends BorderPane {
     private static final double CELL_GAP = 1.0;
 
     private final MazeGrid maze = new MazeGrid(ROWS, COLS);
-    private final AStarPathfinder pathfinder = new AStarPathfinder();
+    private final AStarPathfinder aStarPathfinder = new AStarPathfinder();
+    private final GreedyBestFirstPathfinder greedyPathfinder = new GreedyBestFirstPathfinder();
 
     private final GridPane gridPane = new GridPane();
     private final Label statusLabel = new Label();
     private final ToggleButton wallTool = new ToggleButton("Parede");
     private final ToggleButton startTool = new ToggleButton("Início");
     private final ToggleButton goalTool = new ToggleButton("Saída");
+    private final ToggleButton aStarAlgorithmTool = new ToggleButton("A*");
+    private final ToggleButton greedyAlgorithmTool = new ToggleButton("Greedy Best-First");
 
     private final Rectangle[][] cells = new Rectangle[ROWS][COLS];
 
@@ -63,17 +64,30 @@ public final class MazeView extends BorderPane {
         title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");
 
         Label subtitle = new Label(
-                "Desenhe as paredes, defina o início e a saída e visualize o caminho encontrado pelo A*."
+                "Desenhe as paredes, defina o início e a saída e visualize o caminho encontrado pelo algoritmo escolhido."
         );
         subtitle.setWrapText(true);
         subtitle.setStyle("-fx-text-fill: #666; -fx-font-size: 13px;");
 
-        ToggleGroup group = new ToggleGroup();
+        ToggleGroup drawingGroup = new ToggleGroup();
 
-        wallTool.setToggleGroup(group);
-        startTool.setToggleGroup(group);
-        goalTool.setToggleGroup(group);
+        wallTool.setToggleGroup(drawingGroup);
+        startTool.setToggleGroup(drawingGroup);
+        goalTool.setToggleGroup(drawingGroup);
         wallTool.setSelected(true);
+
+        ToggleGroup algorithmGroup = new ToggleGroup();
+
+        aStarAlgorithmTool.setToggleGroup(algorithmGroup);
+        greedyAlgorithmTool.setToggleGroup(algorithmGroup);
+        aStarAlgorithmTool.setSelected(true);
+
+        // Impede que o usuário desmarque o algoritmo selecionado sem escolher outro.
+        algorithmGroup.selectedToggleProperty().addListener((observable, oldToggle, newToggle) -> {
+            if (newToggle == null && oldToggle != null) {
+                oldToggle.setSelected(true);
+            }
+        });
 
         Button solveButton = new Button("Encontrar caminho");
         Button clearWallsButton = new Button("Limpar paredes");
@@ -95,14 +109,22 @@ public final class MazeView extends BorderPane {
             }
         });
 
+        HBox drawingTools = new HBox(8, wallTool, startTool, goalTool);
+        drawingTools.setAlignment(Pos.CENTER_LEFT);
+
+        HBox algorithmTools = new HBox(8, new Label("Algoritmo:"), aStarAlgorithmTool, greedyAlgorithmTool);
+        algorithmTools.setAlignment(Pos.CENTER_LEFT);
+
+        HBox actionTools = new HBox(8, solveButton, clearWallsButton, resetButton);
+        actionTools.setAlignment(Pos.CENTER_LEFT);
+
         HBox tools = new HBox(
-                8,
-                wallTool,
-                startTool,
-                goalTool,
-                solveButton,
-                clearWallsButton,
-                resetButton
+                12,
+                drawingTools,
+                new Separator(),
+                algorithmTools,
+                new Separator(),
+                actionTools
         );
         tools.setAlignment(Pos.CENTER_LEFT);
 
@@ -204,9 +226,13 @@ public final class MazeView extends BorderPane {
         }
 
         refreshAll();
-        updateStatus("Executando A*...");
 
-        AStarPathfinder.Result result = pathfinder.findPath(maze);
+        String algorithmName = aStarAlgorithmTool.isSelected() ? "A*" : "Greedy Best-First";
+        updateStatus("Executando " + algorithmName + "...");
+
+        PathfindingResult result = aStarAlgorithmTool.isSelected()
+                ? aStarPathfinder.findPath(maze)
+                : greedyPathfinder.findPath(maze);
 
         animating = true;
 
@@ -256,13 +282,13 @@ public final class MazeView extends BorderPane {
 
             if (result.found()) {
                 updateStatus(
-                        "Caminho encontrado. " +
+                        algorithmName + " encontrou o caminho. " +
                         "Passos: " + Math.max(0, result.path().size() - 1) +
                         " | Nós explorados: " + result.exploredOrder().size()
                 );
             } else {
                 updateStatus(
-                        "Não foi possível alcançar a saída. " +
+                        algorithmName + " não conseguiu alcançar a saída. " +
                         "Nós explorados: " + result.exploredOrder().size()
                 );
             }

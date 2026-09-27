@@ -1,3 +1,4 @@
+
 package dev.ferreira.dragon.hunt;
 
 import java.util.ArrayList;
@@ -9,24 +10,24 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-public final class AStarPathfinder {
+
+public final class GreedyBestFirstPathfinder {
 
     public PathfindingResult findPath(MazeGrid maze) {
         Cell start = maze.start();
         Cell goal = maze.goal();
 
         PriorityQueue<Node> open = new PriorityQueue<>(
-                Comparator.comparingInt(Node::f)
-                        .thenComparingInt(Node::h)
+                Comparator.comparingInt(Node::h)
         );
 
-        Map<Cell, Integer> gScore = new HashMap<>();
         Map<Cell, Cell> cameFrom = new HashMap<>();
+        Set<Cell> visited = new HashSet<>();
         Set<Cell> closed = new HashSet<>();
         List<Cell> exploredOrder = new ArrayList<>();
 
-        gScore.put(start, 0);
-        open.add(new Node(start, 0, heuristic(start, goal)));
+        visited.add(start);
+        open.add(new Node(start, heuristic(start, goal)));
 
         while (!open.isEmpty()) {
             Node currentNode = open.poll();
@@ -44,19 +45,13 @@ public final class AStarPathfinder {
             }
 
             for (Cell neighbor : neighbors(current, maze)) {
-                if (closed.contains(neighbor)) {
+                if (visited.contains(neighbor)) {
                     continue;
                 }
 
-                int tentativeG = gScore.get(current) + 1;
-                int previousG = gScore.getOrDefault(neighbor, Integer.MAX_VALUE);
-
-                if (tentativeG < previousG) {
-                    cameFrom.put(neighbor, current);
-                    gScore.put(neighbor, tentativeG);
-                    int h = heuristic(neighbor, goal);
-                    open.add(new Node(neighbor, tentativeG, h));
-                }
+                visited.add(neighbor);
+                cameFrom.put(neighbor, current);
+                open.add(new Node(neighbor, heuristic(neighbor, goal)));
             }
         }
 
@@ -101,9 +96,6 @@ public final class AStarPathfinder {
         return Math.abs(a.row() - b.row()) + Math.abs(a.col() - b.col());
     }
 
-    private record Node(Cell cell, int g, int h) {
-        int f() {
-            return g + h;
-        }
+    private record Node(Cell cell, int h) {
     }
 }
