@@ -1,9 +1,10 @@
 package dev.ferreira.dragon.hunt;
 
+import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
 import javafx.animation.Timeline;
-import javafx.animation.KeyFrame;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -15,6 +16,8 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -22,7 +25,15 @@ import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+/**
+ * Tela principal do Dragon Hunt: o herói precisa atravessar as cavernas,
+ * desviar das rochas desabadas e alcançar o covil do dragão. O jogador
+ * esculpe o labirinto clicando nas células, escolhe o algoritmo de busca
+ * e, ao fim da caçada, é levado para uma tela de resultado com a opção de
+ * voltar a jogar ou encerrar.
+ */
 public final class MazeView extends BorderPane {
 
     private static final int ROWS = 15;
@@ -30,89 +41,122 @@ public final class MazeView extends BorderPane {
     private static final double CELL_SIZE = 40.0;
     private static final double CELL_GAP = 1.0;
 
+    // Paleta temática: pedra de caverna + brasa de dragão.
+    private static final String STONE_BG = "#1c1613";
+    private static final String PANEL_BG = "#241d19";
+    private static final String PANEL_BORDER = "#3a2f27";
+    private static final String TEXT_PRIMARY = "#f1e7d0";
+    private static final String TEXT_MUTED = "#b8a888";
+    private static final String ACCENT_FIRE = "#d9622b";
+    private static final String ACCENT_GOLD = "#c9a13b";
+
+    private static final Color FLOOR_COLOR = Color.web("#e8ddc7");
+    private static final Color WALL_COLOR = Color.web("#241a16");
+    private static final Color HERO_COLOR = Color.web("#4c8c5d");
+    private static final Color DRAGON_COLOR = Color.web("#8c2f2f");
+    private static final Color EXPLORED_COLOR = Color.web("#5b7fa6");
+    private static final Color PATH_COLOR = Color.web("#e8b74d");
+
     private final MazeGrid maze = new MazeGrid(ROWS, COLS);
     private final AStarPathfinder aStarPathfinder = new AStarPathfinder();
     private final GreedyBestFirstPathfinder greedyPathfinder = new GreedyBestFirstPathfinder();
 
     private final GridPane gridPane = new GridPane();
-    private final Label statusLabel = new Label();
-    private final ToggleButton wallTool = new ToggleButton("Parede");
-    private final ToggleButton startTool = new ToggleButton("Início");
-    private final ToggleButton goalTool = new ToggleButton("Saída");
+
+    private final ToggleButton wallTool = new ToggleButton("Rochas");
+    private final ToggleButton startTool = new ToggleButton("Herói");
+    private final ToggleButton goalTool = new ToggleButton("Dragão");
     private final ToggleButton aStarAlgorithmTool = new ToggleButton("A*");
     private final ToggleButton greedyAlgorithmTool = new ToggleButton("Greedy Best-First");
+    private final Button solveButton = new Button("Iniciar caçada");
 
     private final Rectangle[][] cells = new Rectangle[ROWS][COLS];
 
-    private boolean mouseDown;
-    private Cell lastEditedCell;
-    private boolean editingWallValue;
+    private Node header;
+    private Node gridContainer;
+
     private boolean animating;
+    private long searchStartNanos;
 
     public MazeView() {
+        setStyle("-fx-background-color: " + STONE_BG + ";");
         setPadding(new Insets(18));
-        setTop(createHeader());
-        setCenter(createGridContainer());
-        setBottom(createFooter());
+
+        header = createHeader();
+        gridContainer = createGridContainer();
+
+        setTop(header);
+        setCenter(gridContainer);
 
         createGrid();
         refreshAll();
     }
 
     private Node createHeader() {
-        Label title = new Label("A* Maze Solver");
-        title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");
+        Label title = new Label("Dragon Hunt");
+        title.setStyle(
+                "-fx-font-size: 30px; -fx-font-weight: bold; " +
+                "-fx-text-fill: " + ACCENT_GOLD + "; -fx-font-family: Georgia;"
+        );
 
         Label subtitle = new Label(
-                "Desenhe as paredes, defina o início e a saída e visualize o caminho encontrado pelo algoritmo escolhido."
+                "Esculpa as cavernas, poste o herói e o covil do dragão, e veja o algoritmo " +
+                "de busca traçar uma trilha entre as rochas desabadas."
         );
         subtitle.setWrapText(true);
-        subtitle.setStyle("-fx-text-fill: #666; -fx-font-size: 13px;");
+        subtitle.setStyle("-fx-text-fill: " + TEXT_MUTED + "; -fx-font-size: 13px;");
 
         ToggleGroup drawingGroup = new ToggleGroup();
-
         wallTool.setToggleGroup(drawingGroup);
         startTool.setToggleGroup(drawingGroup);
         goalTool.setToggleGroup(drawingGroup);
         wallTool.setSelected(true);
+        styleToggle(wallTool);
+        styleToggle(startTool);
+        styleToggle(goalTool);
 
         ToggleGroup algorithmGroup = new ToggleGroup();
-
         aStarAlgorithmTool.setToggleGroup(algorithmGroup);
         greedyAlgorithmTool.setToggleGroup(algorithmGroup);
         aStarAlgorithmTool.setSelected(true);
+        styleToggle(aStarAlgorithmTool);
+        styleToggle(greedyAlgorithmTool);
 
-        // Impede que o usuário desmarque o algoritmo selecionado sem escolher outro.
+        // Impede que o algoritmo selecionado fique "sem dono" ao clicar de novo nele.
         algorithmGroup.selectedToggleProperty().addListener((observable, oldToggle, newToggle) -> {
             if (newToggle == null && oldToggle != null) {
                 oldToggle.setSelected(true);
             }
         });
 
-        Button solveButton = new Button("Encontrar caminho");
-        Button clearWallsButton = new Button("Limpar paredes");
-        Button resetButton = new Button("Novo labirinto");
+        Button clearWallsButton = new Button("Desmoronar rochas");
+        Button resetButton = new Button("Nova caverna");
+        styleRestingAction(solveButton);
+        styleRestingAction(clearWallsButton);
+        styleRestingAction(resetButton);
+
+        // O botão só acende em laranja enquanto o usuário o mantém pressionado.
+        solveButton.pressedProperty().addListener((observable, wasPressed, isPressed) ->
+                solveButton.setStyle(actionStyle(isPressed)));
 
         solveButton.setOnAction(event -> solve());
         clearWallsButton.setOnAction(event -> {
             if (!animating) {
                 maze.clearWalls();
                 refreshAll();
-                updateStatus("Paredes limpas.");
             }
         });
         resetButton.setOnAction(event -> {
             if (!animating) {
                 maze.reset();
                 refreshAll();
-                updateStatus("Labirinto restaurado.");
             }
         });
 
         HBox drawingTools = new HBox(8, wallTool, startTool, goalTool);
         drawingTools.setAlignment(Pos.CENTER_LEFT);
 
-        HBox algorithmTools = new HBox(8, new Label("Algoritmo:"), aStarAlgorithmTool, greedyAlgorithmTool);
+        HBox algorithmTools = new HBox(8, mutedLabel("Algoritmo:"), aStarAlgorithmTool, greedyAlgorithmTool);
         algorithmTools.setAlignment(Pos.CENTER_LEFT);
 
         HBox actionTools = new HBox(8, solveButton, clearWallsButton, resetButton);
@@ -121,16 +165,16 @@ public final class MazeView extends BorderPane {
         HBox tools = new HBox(
                 12,
                 drawingTools,
-                new Separator(),
+                separator(),
                 algorithmTools,
-                new Separator(),
+                separator(),
                 actionTools
         );
         tools.setAlignment(Pos.CENTER_LEFT);
 
-        VBox header = new VBox(10, title, subtitle, tools);
-        header.setPadding(new Insets(0, 0, 14, 0));
-        return header;
+        VBox headerBox = new VBox(10, title, subtitle, tools);
+        headerBox.setPadding(new Insets(0, 0, 14, 0));
+        return headerBox;
     }
 
     private Node createGridContainer() {
@@ -140,48 +184,37 @@ public final class MazeView extends BorderPane {
 
         BorderPane container = new BorderPane(gridPane);
         container.setStyle(
-                "-fx-background-color: #e9e9e9; " +
-                "-fx-border-color: #c8c8c8; " +
-                "-fx-border-radius: 8; " +
-                "-fx-background-radius: 8;"
+                "-fx-background-color: " + PANEL_BG + "; " +
+                "-fx-border-color: " + PANEL_BORDER + "; " +
+                "-fx-border-radius: 10; " +
+                "-fx-background-radius: 10; " +
+                "-fx-padding: 12;"
         );
         return container;
-    }
-
-    private Node createFooter() {
-        statusLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #555;");
-
-        Label legend = new Label("Início = verde   Saída = vermelho   Parede = escuro   Explorado = azul claro   Caminho = amarelo");
-        legend.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
-
-        VBox footer = new VBox(5, statusLabel, legend);
-        footer.setPadding(new Insets(12, 0, 0, 0));
-        return footer;
     }
 
     private void createGrid() {
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
                 Rectangle rect = new Rectangle(CELL_SIZE, CELL_SIZE);
-                rect.setStroke(Color.web("#d0d0d0"));
-                rect.setFill(Color.WHITE);
+                rect.setArcWidth(4);
+                rect.setArcHeight(4);
+                rect.setStroke(Color.web("#cbb98f"));
+                rect.setFill(FLOOR_COLOR);
 
                 final int r = row;
                 final int c = col;
 
-                rect.setOnMousePressed(event -> {
+                rect.setOnMouseClicked(event -> {
                     if (animating) {
                         return;
                     }
 
-                    mouseDown = true;
-                    lastEditedCell = null;
-
                     Cell cell = new Cell(r, c);
 
                     if (wallTool.isSelected()) {
-                        editingWallValue = !maze.isWall(cell);
-                        applyWallEdit(cell);
+                        maze.setWall(cell, !maze.isWall(cell));
+                        refreshCell(cell);
                     } else if (startTool.isSelected()) {
                         maze.setStart(cell);
                         refreshAll();
@@ -191,33 +224,10 @@ public final class MazeView extends BorderPane {
                     }
                 });
 
-                rect.setOnMouseEntered(event -> {
-                    if (animating || !mouseDown || !wallTool.isSelected()) {
-                        return;
-                    }
-
-                    applyWallEdit(new Cell(r, c));
-                });
-
                 cells[row][col] = rect;
                 gridPane.add(rect, col, row);
             }
         }
-
-        gridPane.setOnMouseReleased(event -> {
-            mouseDown = false;
-            lastEditedCell = null;
-        });
-    }
-
-    private void applyWallEdit(Cell cell) {
-        if (cell.equals(lastEditedCell)) {
-            return;
-        }
-
-        lastEditedCell = cell;
-        maze.setWall(cell, editingWallValue);
-        refreshCell(cell);
     }
 
     private void solve() {
@@ -227,8 +237,8 @@ public final class MazeView extends BorderPane {
 
         refreshAll();
 
-        String algorithmName = aStarAlgorithmTool.isSelected() ? "A*" : "Greedy Best-First";
-        updateStatus("Executando " + algorithmName + "...");
+        String algorithmName = currentAlgorithmName();
+        searchStartNanos = System.nanoTime();
 
         PathfindingResult result = aStarAlgorithmTool.isSelected()
                 ? aStarPathfinder.findPath(maze)
@@ -247,7 +257,7 @@ public final class MazeView extends BorderPane {
             int delay = index * 18;
             frames.add(new KeyFrame(Duration.millis(delay), event -> {
                 Rectangle rect = cells[cell.row()][cell.col()];
-                rect.setFill(Color.web("#9ecae1"));
+                rect.setFill(EXPLORED_COLOR);
             }));
             index++;
         }
@@ -263,7 +273,7 @@ public final class MazeView extends BorderPane {
             int delay = pathStart + pathIndex * 45;
             frames.add(new KeyFrame(Duration.millis(delay), event -> {
                 Rectangle rect = cells[cell.row()][cell.col()];
-                rect.setFill(Color.web("#f3c969"));
+                rect.setFill(PATH_COLOR);
             }));
             pathIndex++;
         }
@@ -279,22 +289,85 @@ public final class MazeView extends BorderPane {
 
         sequence.setOnFinished(event -> {
             animating = false;
-
-            if (result.found()) {
-                updateStatus(
-                        algorithmName + " encontrou o caminho. " +
-                        "Passos: " + Math.max(0, result.path().size() - 1) +
-                        " | Nós explorados: " + result.exploredOrder().size()
-                );
-            } else {
-                updateStatus(
-                        algorithmName + " não conseguiu alcançar a saída. " +
-                        "Nós explorados: " + result.exploredOrder().size()
-                );
-            }
+            double elapsedSeconds = (System.nanoTime() - searchStartNanos) / 1_000_000_000.0;
+            showResultsScreen(algorithmName, result, countWalls(), elapsedSeconds);
         });
 
         sequence.play();
+    }
+
+    /**
+     * Substitui toda a tela pelo resultado da caçada. O jogador só volta a
+     * ver o labirinto clicando em "Continuar caçando".
+     */
+    private void showResultsScreen(String algorithmName, PathfindingResult result, int wallsCount, double elapsedSeconds) {
+        Label title = new Label(result.found() ? "O dragão foi encurralado!" : "O dragão escapou...");
+        title.setStyle(
+                "-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: " + ACCENT_GOLD + "; " +
+                "-fx-font-family: Georgia;"
+        );
+
+        Label subtitle = new Label(
+                result.found()
+                        ? "O herói encontrou uma trilha segura até o covil."
+                        : "Não existe caminho até o covil com as rochas atuais."
+        );
+        subtitle.setWrapText(true);
+        subtitle.setStyle("-fx-text-fill: " + TEXT_MUTED + "; -fx-font-size: 14px;");
+
+        VBox statsBox = new VBox(
+                10,
+                resultRow("Algoritmo", algorithmName),
+                resultRow("Células exploradas", String.valueOf(result.exploredOrder().size())),
+                resultRow("Passos no caminho", String.valueOf(Math.max(0, result.path().size() - 1))),
+                resultRow("Rochas no mapa", String.valueOf(wallsCount)),
+                resultRow("Tempo de busca", String.format(Locale.US, "%.1fs", elapsedSeconds))
+        );
+        statsBox.setPadding(new Insets(18));
+        statsBox.setStyle(
+                "-fx-background-color: " + PANEL_BG + "; " +
+                "-fx-border-color: " + PANEL_BORDER + "; " +
+                "-fx-border-radius: 10; " +
+                "-fx-background-radius: 10;"
+        );
+        statsBox.setMaxWidth(360);
+
+        Button continueButton = new Button("Continuar caçando");
+        Button quitButton = new Button("Encerrar jogo");
+        styleRestingAction(continueButton);
+        styleRestingAction(quitButton);
+
+        continueButton.setOnAction(event -> {
+            setTop(header);
+            setCenter(gridContainer);
+        });
+        quitButton.setOnAction(event -> Platform.exit());
+
+        HBox buttons = new HBox(12, continueButton, quitButton);
+        buttons.setAlignment(Pos.CENTER);
+
+        VBox resultsScreen = new VBox(20, title, subtitle, statsBox, buttons);
+        resultsScreen.setAlignment(Pos.CENTER);
+        resultsScreen.setPadding(new Insets(40));
+        resultsScreen.setStyle("-fx-background-color: " + STONE_BG + ";");
+
+        setTop(null);
+        setCenter(resultsScreen);
+    }
+
+    private HBox resultRow(String label, String value) {
+        Label caption = mutedLabel(label);
+        Label valueLabel = new Label(value);
+        valueLabel.setStyle(
+                "-fx-text-fill: " + ACCENT_GOLD + "; -fx-font-weight: bold; -fx-font-size: 14px;"
+        );
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox row = new HBox(caption, spacer, valueLabel);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
     }
 
     private void refreshAll() {
@@ -309,17 +382,79 @@ public final class MazeView extends BorderPane {
         Rectangle rect = cells[cell.row()][cell.col()];
 
         if (cell.equals(maze.start())) {
-            rect.setFill(Color.web("#63c174"));
+            rect.setFill(HERO_COLOR);
         } else if (cell.equals(maze.goal())) {
-            rect.setFill(Color.web("#e06464"));
+            rect.setFill(DRAGON_COLOR);
         } else if (maze.isWall(cell)) {
-            rect.setFill(Color.web("#303238"));
+            rect.setFill(WALL_COLOR);
         } else {
-            rect.setFill(Color.WHITE);
+            rect.setFill(FLOOR_COLOR);
         }
     }
 
-    private void updateStatus(String text) {
-        statusLabel.setText(text);
+    private int countWalls() {
+        int count = 0;
+        for (int row = 0; row < ROWS; row++) {
+            for (int col = 0; col < COLS; col++) {
+                if (maze.isWall(new Cell(row, col))) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private String currentAlgorithmName() {
+        return aStarAlgorithmTool.isSelected() ? "A*" : "Greedy Best-First";
+    }
+
+    private Label mutedLabel(String text) {
+        Label label = new Label(text);
+        label.setStyle("-fx-text-fill: " + TEXT_MUTED + "; -fx-font-size: 13px;");
+        return label;
+    }
+
+    private Separator separator() {
+        Separator separator = new Separator();
+        separator.setStyle("-fx-background-color: " + PANEL_BORDER + ";");
+        return separator;
+    }
+
+    private void styleToggle(ToggleButton button) {
+        // Usa o estado atual (pode já vir selecionado, ex.: ferramenta padrão)
+        // em vez de assumir "não selecionado" — evita o botão nascer apagado.
+        button.setStyle(toggleStyle(button.isSelected()));
+        button.selectedProperty().addListener((observable, wasSelected, isSelected) ->
+                button.setStyle(toggleStyle(isSelected)));
+    }
+
+    private String toggleStyle(boolean selected) {
+        String background = selected ? ACCENT_FIRE : PANEL_BG;
+        String textColor = selected ? "#241a16" : TEXT_PRIMARY;
+        String fontWeight = selected ? "bold" : "normal";
+        return "-fx-background-color: " + background + "; " +
+                "-fx-text-fill: " + textColor + "; " +
+                "-fx-font-weight: " + fontWeight + "; " +
+                "-fx-background-radius: 6; " +
+                "-fx-border-color: " + PANEL_BORDER + "; " +
+                "-fx-border-radius: 6; " +
+                "-fx-padding: 6 12;";
+    }
+
+    /** Estilo padrão "em repouso" para botões de ação (sem laranja). */
+    private void styleRestingAction(Button button) {
+        button.setStyle(actionStyle(false));
+    }
+
+    private String actionStyle(boolean pressed) {
+        String background = pressed ? ACCENT_FIRE : PANEL_BG;
+        String textColor = pressed ? "#241a16" : TEXT_PRIMARY;
+        return "-fx-background-color: " + background + "; " +
+                "-fx-text-fill: " + textColor + "; " +
+                "-fx-font-weight: bold; " +
+                "-fx-background-radius: 6; " +
+                "-fx-border-color: " + PANEL_BORDER + "; " +
+                "-fx-border-radius: 6; " +
+                "-fx-padding: 6 14;";
     }
 }
