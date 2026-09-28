@@ -1,8 +1,10 @@
-package dev.ferreira.dragon.hunt;
+package dev.ferreira.dragon.hunt.service;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import dev.ferreira.dragon.hunt.dtos.Cell;
 
 public final class MazeGrid {
     private final int rows;

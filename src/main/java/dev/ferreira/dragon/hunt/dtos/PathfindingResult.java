@@ -1,4 +1,4 @@
-package dev.ferreira.dragon.hunt;
+package dev.ferreira.dragon.hunt.dtos;
 
 import java.util.List;
 

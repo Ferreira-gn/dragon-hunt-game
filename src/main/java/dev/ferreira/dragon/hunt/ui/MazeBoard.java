@@ -1,7 +1,5 @@
 package dev.ferreira.dragon.hunt.ui;
 
-import dev.ferreira.dragon.hunt.Cell;
-
 import javafx.geometry.Pos;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -9,6 +7,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 import java.util.function.Consumer;
+
+import dev.ferreira.dragon.hunt.dtos.Cell;
 
 final class MazeBoard extends BorderPane {
 

@@ -1,4 +1,4 @@
-package dev.ferreira.dragon.hunt;
+package dev.ferreira.dragon.hunt.algorithm;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -8,6 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+
+import dev.ferreira.dragon.hunt.dtos.Cell;
+import dev.ferreira.dragon.hunt.dtos.Pathfinder;
+import dev.ferreira.dragon.hunt.dtos.PathfindingResult;
+import dev.ferreira.dragon.hunt.service.MazeGrid;
 
 
 public final class GreedyBestFirstPathfinder implements Pathfinder {

@@ -1,12 +1,11 @@
 package dev.ferreira.dragon.hunt.ui;
 
-import dev.ferreira.dragon.hunt.AStarPathfinder;
-import dev.ferreira.dragon.hunt.Cell;
-import dev.ferreira.dragon.hunt.GreedyBestFirstPathfinder;
-import dev.ferreira.dragon.hunt.MazeGrid;
-import dev.ferreira.dragon.hunt.PathfindingResult;
-import dev.ferreira.dragon.hunt.RockslideGenerator;
-
+import dev.ferreira.dragon.hunt.algorithm.AStarPathfinder;
+import dev.ferreira.dragon.hunt.algorithm.GreedyBestFirstPathfinder;
+import dev.ferreira.dragon.hunt.dtos.Cell;
+import dev.ferreira.dragon.hunt.dtos.PathfindingResult;
+import dev.ferreira.dragon.hunt.service.MazeGrid;
+import dev.ferreira.dragon.hunt.service.RockslideGenerator;
 import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;

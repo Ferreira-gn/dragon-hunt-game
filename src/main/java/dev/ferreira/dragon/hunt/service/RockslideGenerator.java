@@ -1,6 +1,9 @@
-package dev.ferreira.dragon.hunt;
+package dev.ferreira.dragon.hunt.service;
 
 import java.util.Random;
+
+import dev.ferreira.dragon.hunt.dtos.Cell;
+import dev.ferreira.dragon.hunt.dtos.Pathfinder;
 
 
 public final class RockslideGenerator {
