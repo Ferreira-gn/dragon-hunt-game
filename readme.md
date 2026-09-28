@@ -25,19 +25,19 @@ labirinto com dois personagens representando cada algoritmo, o A* irá represent
 Abaixo estão algumas imagens da interface e dos diferentes estados do labirinto durante a execução do Dragon Hunt.
 
 <div align="center"> 
-  <img src="assets/maze.jpeg" alt="Labirinto" width="50%" style="border-radius: 12px;">
-  <img src="assets/maze-02.jpeg" alt="Labirinto 2" width="50%" style="border-radius: 12px;">
+  <img src="assets/maze.jpeg" alt="Labirinto" width="45%" style="border-radius: 12px;">
+  <img src="assets/maze-02.jpeg" alt="Labirinto 2" width="45%" style="border-radius: 12px;">
 </div>
 
 <br>
 
 <div align="center">
-  <img src="assets/maze-blocked.jpeg" alt="Labirinto bloqueado" width="50%" style="border-radius: 12px;">
-  <img src="assets/maze-result.jpeg" alt="Resultado da execução" width="50%" style="border-radius: 12px;">
+  <img src="assets/maze-blocked.jpeg" alt="Labirinto bloqueado" width="45%" style="border-radius: 12px;">
+  <img src="assets/maze-result.jpeg" alt="Resultado da execução" width="45%" style="border-radius: 12px;">
 </div>
 
 <br>
 
 <div align="center">
-  <img src="assets/solved-maze.jpeg" alt="Labirinto solucionado" width="50%" style="border-radius: 12px;">
+  <img src="assets/solved-maze.jpeg" alt="Labirinto solucionado" width="45%" style="border-radius: 12px;">
 </div>
