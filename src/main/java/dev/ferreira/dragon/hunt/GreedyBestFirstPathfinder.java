@@ -1,4 +1,3 @@
-
 package dev.ferreira.dragon.hunt;
 
 import java.util.ArrayList;
@@ -11,8 +10,9 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 
-public final class GreedyBestFirstPathfinder {
+public final class GreedyBestFirstPathfinder implements Pathfinder {
 
+    @Override
     public PathfindingResult findPath(MazeGrid maze) {
         Cell start = maze.start();
         Cell goal = maze.goal();

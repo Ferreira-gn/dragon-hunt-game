@@ -9,8 +9,9 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-public final class AStarPathfinder {
+public final class AStarPathfinder implements Pathfinder {
 
+    @Override
     public PathfindingResult findPath(MazeGrid maze) {
         Cell start = maze.start();
         Cell goal = maze.goal();

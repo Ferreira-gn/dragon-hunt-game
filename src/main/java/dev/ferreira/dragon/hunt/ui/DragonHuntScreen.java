@@ -5,6 +5,7 @@ import dev.ferreira.dragon.hunt.Cell;
 import dev.ferreira.dragon.hunt.GreedyBestFirstPathfinder;
 import dev.ferreira.dragon.hunt.MazeGrid;
 import dev.ferreira.dragon.hunt.PathfindingResult;
+import dev.ferreira.dragon.hunt.RockslideGenerator;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
@@ -19,45 +20,36 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
+
 
 public final class DragonHuntScreen extends BorderPane {
 
-    private static final int ROWS = 15;
-    private static final int COLS = 15;
-    private static final double CELL_SIZE = 40.0;
-    private static final double CELL_GAP = 1.0;
+    private static final int ROWS = MazeBoard.ROWS;
+    private static final int COLS = MazeBoard.COLS;
 
     // Ritmo da animação de busca, em milissegundos.
     private static final int EXPLORE_FRAME_MILLIS = 18;
     private static final int PATH_FRAME_MILLIS = 45;
     private static final int PATH_START_GAP_MILLIS = 60;
 
-    // Densidade aproximada de rochas geradas por deslizamento e o número de
-    // tentativas antes de aceitar um mapa mesmo sem caminho garantido.
-    private static final double ROCKSLIDE_DENSITY = 0.32;
-    private static final int ROCKSLIDE_MAX_ATTEMPTS = 40;
-
     private final Runnable onBackToHome;
 
     private final MazeGrid maze = new MazeGrid(ROWS, COLS);
     private final AStarPathfinder aStarPathfinder = new AStarPathfinder();
     private final GreedyBestFirstPathfinder greedyPathfinder = new GreedyBestFirstPathfinder();
-    private final Random random = new Random();
+    private final RockslideGenerator rockslideGenerator = new RockslideGenerator(aStarPathfinder);
 
-    private final GridPane gridPane = new GridPane();
+    private final MazeBoard board = new MazeBoard(this::handleCellClick);
 
     private final ToggleButton wallTool = new ToggleButton("Rochas");
     private final ToggleButton startTool = new ToggleButton("Herói");
@@ -66,8 +58,6 @@ public final class DragonHuntScreen extends BorderPane {
     private final ToggleButton greedyAlgorithmTool = new ToggleButton("Greedy Best-First");
     private final Button solveButton = new Button("Iniciar caçada");
     private final Button rockslideButton = new Button("Deslizamento de rochas");
-
-    private final Rectangle[][] cells = new Rectangle[ROWS][COLS];
 
     private Node header;
     private Node gridContainer;
@@ -82,15 +72,13 @@ public final class DragonHuntScreen extends BorderPane {
         setPadding(new Insets(18));
 
         header = createHeader();
-        gridContainer = createGridContainer();
+        gridContainer = board;
 
         setTop(header);
         setCenter(gridContainer);
 
-        createGrid();
         refreshAll();
     }
-    
 
     // Cabeçalho: título, navegação, ferramentas de desenho, algoritmo e ações
     private Node createHeader() {
@@ -201,39 +189,6 @@ public final class DragonHuntScreen extends BorderPane {
     }
 
     // Grade do labirinto
-    private Node createGridContainer() {
-        gridPane.setHgap(CELL_GAP);
-        gridPane.setVgap(CELL_GAP);
-        gridPane.setAlignment(Pos.CENTER);
-
-        BorderPane container = new BorderPane(gridPane);
-        container.setStyle(
-                "-fx-background-color: " + Theme.PANEL_BG + "; " +
-                "-fx-border-color: " + Theme.PANEL_BORDER + "; " +
-                "-fx-border-radius: 10; " +
-                "-fx-background-radius: 10; " +
-                "-fx-padding: 12;"
-        );
-        return container;
-    }
-
-    private void createGrid() {
-        for (int row = 0; row < ROWS; row++) {
-            for (int col = 0; col < COLS; col++) {
-                Rectangle rect = new Rectangle(CELL_SIZE, CELL_SIZE);
-                rect.setArcWidth(4);
-                rect.setArcHeight(4);
-                rect.setStroke(Color.web("#cbb98f"));
-                rect.setFill(Theme.FLOOR_COLOR);
-
-                Cell cell = new Cell(row, col);
-                rect.setOnMouseClicked(event -> handleCellClick(cell));
-
-                cells[row][col] = rect;
-                gridPane.add(rect, col, row);
-            }
-        }
-    }
 
     private void handleCellClick(Cell cell) {
         if (animating) {
@@ -253,33 +208,9 @@ public final class DragonHuntScreen extends BorderPane {
     }
 
     // Deslizamento de rochas (gera um novo padrão de paredes aleatório)
-
-    /**
-     * Sorteia um novo padrão de rochas sobre a caverna, preservando a
-     * posição do herói e do dragão. Tenta algumas vezes até sortear um mapa
-     * com caminho entre os dois; se não conseguir em
-     * {@link #ROCKSLIDE_MAX_ATTEMPTS} tentativas, aceita o último sorteio.
-     */
     private void triggerRockslide() {
-        for (int attempt = 1; attempt <= ROCKSLIDE_MAX_ATTEMPTS; attempt++) {
-            scatterRandomWalls();
-            if (aStarPathfinder.findPath(maze).found()) {
-                break;
-            }
-        }
+        rockslideGenerator.generate(maze, ROWS, COLS);
         refreshAll();
-    }
-
-    private void scatterRandomWalls() {
-        maze.clearWalls();
-        for (int row = 0; row < ROWS; row++) {
-            for (int col = 0; col < COLS; col++) {
-                Cell cell = new Cell(row, col);
-                if (!isEndpoint(cell) && random.nextDouble() < ROCKSLIDE_DENSITY) {
-                    maze.setWall(cell, true);
-                }
-            }
-        }
     }
 
     // Busca e animação
@@ -336,7 +267,7 @@ public final class DragonHuntScreen extends BorderPane {
     private KeyFrame colorFrame(int delayMillis, Cell cell, Color color) {
         return new KeyFrame(
                 Duration.millis(delayMillis),
-                event -> cells[cell.row()][cell.col()].setFill(color)
+                event -> board.paint(cell, color)
         );
     }
 
@@ -358,6 +289,7 @@ public final class DragonHuntScreen extends BorderPane {
     }
 
     // Tela de resultado
+
     /**
      * Substitui toda a tela pelo resultado da caçada. O jogador escolhe
      * continuar no mesmo labirinto, voltar ao menu principal ou encerrar.
@@ -455,16 +387,14 @@ public final class DragonHuntScreen extends BorderPane {
     }
 
     private void refreshCell(Cell cell) {
-        Rectangle rect = cells[cell.row()][cell.col()];
-
         if (cell.equals(maze.start())) {
-            rect.setFill(Theme.HERO_COLOR);
+            board.paint(cell, Theme.HERO_COLOR);
         } else if (cell.equals(maze.goal())) {
-            rect.setFill(Theme.DRAGON_COLOR);
+            board.paint(cell, Theme.DRAGON_COLOR);
         } else if (maze.isWall(cell)) {
-            rect.setFill(Theme.WALL_COLOR);
+            board.paint(cell, Theme.WALL_COLOR);
         } else {
-            rect.setFill(Theme.FLOOR_COLOR);
+            board.paint(cell, Theme.FLOOR_COLOR);
         }
     }
 

@@ -23,6 +23,8 @@ final class Theme {
     static final Color DRAGON_COLOR = Color.web("#8c2f2f");
     static final Color EXPLORED_COLOR = Color.web("#5b7fa6");
     static final Color PATH_COLOR = Color.web("#e8b74d");
+    static final Color HUNTER_TRAIL_COLOR = Color.web("#d9a5a0");
+    static final Color PREY_TRAIL_COLOR = Color.web("#a9cdb0");
 
     private Theme() {
     }
